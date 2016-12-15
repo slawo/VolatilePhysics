@@ -21,30 +21,31 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
-  public sealed class Circle : Shape
+  public sealed class VoltCircle : VoltShape
   {
     #region Factory Functions
-    public static Circle FromWorldPosition(
-      Vector2 origin, 
+    internal void InitializeFromWorldSpace(
+      Vector2 worldSpaceOrigin, 
       float radius,
-      float density = Config.DEFAULT_DENSITY,
-      float friction = Config.DEFAULT_FRICTION,
-      float restitution = Config.DEFAULT_RESTITUTION)
+      float density,
+      float friction,
+      float restitution)
     {
-      return new Circle(origin, radius, density, friction, restitution);
+      base.Initialize(density, friction, restitution);
+
+      this.worldSpaceOrigin = worldSpaceOrigin;
+      this.radius = radius;
+      this.sqrRadius = radius * radius;
+      this.worldSpaceAABB = new VoltAABB(worldSpaceOrigin, radius);
     }
     #endregion
 
     #region Properties
-    public override Shape.ShapeType Type { get { return ShapeType.Circle; } }
+    public override VoltShape.ShapeType Type { get { return ShapeType.Circle; } }
 
     public Vector2 Origin { get { return this.worldSpaceOrigin; } }
     public float Radius { get { return this.radius; } }
@@ -57,89 +58,89 @@ namespace Volatile
 
     // Precomputed body-space values (these should never change unless we
     // want to support moving shapes relative to their body root later on)
-    private Vector2 bodySpacePosition;
+    private Vector2 bodySpaceOrigin;
     #endregion
 
-    private Circle(
-      Vector2 worldSpaceOrigin,
-      float radius,
-      float density,
-      float friction,
-      float restitution)
-      : base(density, friction, restitution)
+    public VoltCircle() 
     {
-      this.radius = radius;
-      this.sqrRadius = radius * radius;
+      this.Reset();
+    }
 
-      this.worldSpaceOrigin = worldSpaceOrigin;
-      this.AABB = new AABB(worldSpaceOrigin, radius);
+    protected override void Reset()
+    {
+      base.Reset();
+
+      this.worldSpaceOrigin = Vector2.zero;
+      this.radius = 0.0f;
+      this.sqrRadius = 0.0f;
+      this.bodySpaceOrigin = Vector2.zero;
     }
 
     #region Functionality Overrides
     protected override void ComputeMetrics()
     {
-      this.bodySpacePosition =
+      this.bodySpaceOrigin =
         this.Body.WorldToBodyPointCurrent(this.worldSpaceOrigin);
-      this.bodySpaceAABB = new AABB(this.bodySpacePosition, this.radius);
+      this.bodySpaceAABB = new VoltAABB(this.bodySpaceOrigin, this.radius);
 
       this.Area = this.sqrRadius * Mathf.PI;
-      this.Mass = this.Area * this.Density * Config.AreaMassRatio;
+      this.Mass = this.Area * this.Density * VoltConfig.AreaMassRatio;
       this.Inertia =
-        this.sqrRadius / 2.0f + this.bodySpacePosition.sqrMagnitude;
+        this.sqrRadius / 2.0f + this.bodySpaceOrigin.sqrMagnitude;
     }
 
     protected override void ApplyBodyPosition()
     {
       this.worldSpaceOrigin =
-        this.Body.BodyToWorldPointCurrent(this.bodySpacePosition);
-      this.AABB = new AABB(this.worldSpaceOrigin, this.radius);
+        this.Body.BodyToWorldPointCurrent(this.bodySpaceOrigin);
+      this.worldSpaceAABB = new VoltAABB(this.worldSpaceOrigin, this.radius);
     }
     #endregion
 
     #region Test Overrides
-    protected override bool ShapeQuery(
+    protected override bool ShapeQueryPoint(
       Vector2 bodySpacePoint)
     {
       return 
         Collision.TestPointCircleSimple(
-          this.bodySpacePosition,
+          this.bodySpaceOrigin,
           bodySpacePoint, 
           this.radius);
     }
 
-    protected override bool ShapeQuery(
-      Vector2 bodySpacePoint, 
+    protected override bool ShapeQueryCircle(
+      Vector2 bodySpaceOrigin, 
       float radius)
     {
       return 
         Collision.TestCircleCircleSimple(
-          this.bodySpacePosition,
-          bodySpacePoint, 
+          this.bodySpaceOrigin,
+          bodySpaceOrigin, 
           this.radius, 
           radius);
     }
 
     protected override bool ShapeRayCast(
-      ref RayCast bodySpaceRay, 
-      ref RayResult result)
+      ref VoltRayCast bodySpaceRay, 
+      ref VoltRayResult result)
     {
       return Collision.CircleRayCast(
         this,
-        this.bodySpacePosition,
+        this.bodySpaceOrigin,
         this.sqrRadius,
         ref bodySpaceRay, 
         ref result);
     }
 
     protected override bool ShapeCircleCast(
-      ref RayCast bodySpaceRay, 
+      ref VoltRayCast bodySpaceRay, 
       float radius,
-      ref RayResult result)
+      ref VoltRayResult result)
     {
       float totalRadius = this.radius + radius;
       return Collision.CircleRayCast(
         this,
-        this.bodySpacePosition,
+        this.bodySpaceOrigin,
         totalRadius * totalRadius,
         ref bodySpaceRay,
         ref result);
@@ -147,7 +148,7 @@ namespace Volatile
     #endregion
 
     #region Debug
-#if VOLATILE_UNITY
+#if UNITY && DEBUG
     public override void GizmoDraw(
       Color edgeColor, 
       Color normalColor, 

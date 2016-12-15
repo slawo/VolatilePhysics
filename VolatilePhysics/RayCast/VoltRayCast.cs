@@ -21,18 +21,14 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
   /// <summary>
   /// A semi-precomputed ray optimized for fast AABB tests.
   /// </summary>
-  public struct RayCast
+  public struct VoltRayCast
   {
     internal readonly Vector2 origin;
     internal readonly Vector2 direction;
@@ -41,7 +37,7 @@ namespace Volatile
     internal readonly bool signX;
     internal readonly bool signY;
 
-    public RayCast(Vector2 origin, Vector2 destination)
+    public VoltRayCast(Vector2 origin, Vector2 destination)
     {
       Vector2 delta = destination - origin;
 
@@ -54,7 +50,7 @@ namespace Volatile
         new Vector2(1.0f / direction.x, 1.0f / direction.y);
     }
 
-    public RayCast(Vector2 origin, Vector2 direction, float distance)
+    public VoltRayCast(Vector2 origin, Vector2 direction, float distance)
     {
       this.origin = origin;
       this.direction = direction;

@@ -21,41 +21,24 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
-  public static class Config
+  internal interface IBroadPhase
   {
-    public static float ResolveSlop = 0.01f;
-    public static float ResolveRate = 0.1f;
-    public static float AreaMassRatio = 0.01f;
+    void AddBody(VoltBody body);
+    void RemoveBody(VoltBody body);
+    void UpdateBody(VoltBody body);
 
-    // Defaults
-    internal const float DEFAULT_DELTA_TIME = 0.02f;
-    internal const float DEFAULT_DAMPING = 0.999f;
-    internal const float DEFAULT_DENSITY = 1.0f;
-    internal const float DEFAULT_RESTITUTION = 0.5f;
-    internal const float DEFAULT_FRICTION = 0.8f;
-
-    internal const int DEFAULT_ITERATION_COUNT = 20;
-
-    // Maximum contacts for collision resolution.
-    internal const int MAX_CONTACTS = 3;
-
-    // Used for initializing timesteps
-    internal const int INVALID_TIME = -1;
-
-    // AABBTree Settings
-    internal const float AABB_PADDING = 0.1f;
-    internal const float AABB_MULTIPLIER = 2.0f;
-
-    // The minimum mass a dynamic object can have before it is
-    // converted to a static object
-    internal const float MINIMUM_DYNAMIC_MASS = 0.00001f;
+    // Note that these should return bodies that meet the criteria within the
+    // spaces defined by the structure itself. These tests should not test the
+    // actual body's bounding box, as that will happen in the beginning of the
+    // narrowphase test.
+    void QueryOverlap(VoltAABB aabb, VoltBuffer<VoltBody> outBuffer);
+    void QueryPoint(Vector2 point, VoltBuffer<VoltBody> outBuffer);
+    void QueryCircle(Vector2 point, float radius, VoltBuffer<VoltBody> outBuffer);
+    void RayCast(ref VoltRayCast ray, VoltBuffer<VoltBody> outBuffer);
+    void CircleCast(ref VoltRayCast ray, float radius, VoltBuffer<VoltBody> outBuffer);
   }
 }

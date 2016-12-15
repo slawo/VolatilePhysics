@@ -18,85 +18,49 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-
-#if VOLATILE_UNITY
+#if UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
 #endif
 
 namespace Volatile
 {
-  internal sealed class Manifold : IPoolable<Manifold>
+  internal sealed class Manifold
+    : IVoltPoolable<Manifold>
   {
-    #region Pool Class
-    internal sealed class Pool : ObjectPool<Manifold>
-    {
-      private Contact.Pool contactPool;
-
-      public Pool(Contact.Pool contactPool)
-      {
-        this.contactPool = contactPool;
-      }
-
-      protected override Manifold Create()
-      {
-        return new Manifold(this.contactPool);
-      }
-    }
+    #region Interface
+    IVoltPool<Manifold> IVoltPoolable<Manifold>.Pool { get; set; }
+    void IVoltPoolable<Manifold>.Reset() { this.Reset(); }
     #endregion
 
-    #region IPoolable Members
-    private bool isValid = false;
-    Manifold IPoolable<Manifold>.Next { get; set; }
-
-    bool IPoolable<Manifold>.IsValid
-    {
-      get { return this.isValid; }
-    }
-
-    void IPoolable<Manifold>.Invalidate()
-    {
-      this.isValid = false;
-    }
-    #endregion
-
-    internal Shape ShapeA { get; private set; }
-    internal Shape ShapeB { get; private set; }
+    internal VoltShape ShapeA { get; private set; }
+    internal VoltShape ShapeB { get; private set; }
     internal float Restitution { get; private set; }
     internal float Friction { get; private set; }
 
+    private readonly Contact[] contacts;
     private int used = 0;
-    private Contact[] contacts;
-    private ObjectPool<Contact> contactPool;
+    private VoltWorld world;
 
-    internal Manifold(ObjectPool<Contact> contactPool)
+    public Manifold()
     {
-      this.contactPool = contactPool;
-
-      this.ShapeA = null;
-      this.ShapeB = null;
-      this.Restitution = 0.0f;
-      this.Friction = 0.0f;
-      this.contacts = new Contact[Config.MAX_CONTACTS];
+      this.contacts = new Contact[VoltConfig.MAX_CONTACTS];
       this.used = 0;
-
-      this.isValid = false;
+      this.Reset();
     }
 
     internal Manifold Assign(
-      Shape shapeA,
-      Shape shapeB)
+      VoltWorld world,
+      VoltShape shapeA,
+      VoltShape shapeB)
     {
+      this.world = world;
       this.ShapeA = shapeA;
       this.ShapeB = shapeB;
+
       this.Restitution = Mathf.Sqrt(shapeA.Restitution * shapeB.Restitution);
       this.Friction = Mathf.Sqrt(shapeA.Friction * shapeB.Friction);
       this.used = 0;
 
-      this.isValid = true;
       return this;
     }
 
@@ -105,10 +69,16 @@ namespace Volatile
       Vector2 normal,
       float penetration)
     {
-      if (this.used >= contacts.Length)
+      if (this.used >= VoltConfig.MAX_CONTACTS)
         return false;
-      this.contacts[this.used++] =
-        this.contactPool.Acquire().Assign(position, normal, penetration);
+
+      this.contacts[this.used] =
+        this.world.AllocateContact().Assign(
+          position, 
+          normal, 
+          penetration);
+      this.used++;
+
       return true;
     }
 
@@ -130,10 +100,22 @@ namespace Volatile
         this.contacts[i].SolveCached(this);
     }
 
-    internal void ReleaseContacts()
+    private void ClearContacts()
     {
       for (int i = 0; i < this.used; i++)
-        this.contactPool.Release(this.contacts[i]);
+        VoltPool.Free(this.contacts[i]);
+      this.used = 0;
+    }
+
+    private void Reset()
+    {
+      this.ShapeA = null;
+      this.ShapeB = null;
+      this.Restitution = 0.0f;
+      this.Friction = 0.0f;
+
+      this.ClearContacts();
+      this.world = null;
     }
   }
 }

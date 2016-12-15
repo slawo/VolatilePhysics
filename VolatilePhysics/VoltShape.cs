@@ -18,25 +18,26 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-
-#if VOLATILE_UNITY
+#if UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
 #endif
 
 namespace Volatile
 {
-  public abstract class Shape
+  public abstract class VoltShape
+    : IVoltPoolable<VoltShape>
   {
+    #region Interface
+    IVoltPool<VoltShape> IVoltPoolable<VoltShape>.Pool { get; set; }
+    void IVoltPoolable<VoltShape>.Reset() { this.Reset(); }
+    #endregion
+
     #region Static Methods
-    internal static void OrderShapes(ref Shape sa, ref Shape sb)
+    internal static void OrderShapes(ref VoltShape sa, ref VoltShape sb)
     {
       if (sa.Type > sb.Type)
       {
-        Shape temp = sa;
+        VoltShape temp = sa;
         sa = sb;
         sb = temp;
       }
@@ -49,14 +50,17 @@ namespace Volatile
       Polygon,
     }
 
+#if DEBUG
+    internal bool IsInitialized { get; set; }
+#endif
+
+    public abstract ShapeType Type { get; }
+
     /// <summary>
     /// For attaching arbitrary data to this shape.
     /// </summary>
     public object UserData { get; set; }
-
-    public abstract ShapeType Type { get; }
-
-    public Body Body { get; private set; }
+    public VoltBody Body { get; private set; }
 
     internal float Density { get; private set; }
     internal float Friction { get; private set; }
@@ -65,7 +69,7 @@ namespace Volatile
     /// <summary>
     /// The world-space bounding AABB for this shape.
     /// </summary>
-    public AABB AABB { get; protected set; }
+    public VoltAABB AABB { get { return this.worldSpaceAABB; } }
 
     /// <summary>
     /// Total area of the shape.
@@ -83,14 +87,11 @@ namespace Volatile
     public float Inertia { get; protected set; }
 
     // Body-space bounding AABB for pre-checks during queries/casts
-    internal AABB bodySpaceAABB;
-
-    // TODO: Remove static here (for threading)
-    internal static int nextId = 0;
-    internal int id;
+    internal VoltAABB worldSpaceAABB;
+    internal VoltAABB bodySpaceAABB;
 
     #region Body-Related
-    internal void AssignBody(Body body)
+    internal void AssignBody(VoltBody body)
     {
       this.Body = body;
       this.ComputeMetrics();
@@ -107,11 +108,11 @@ namespace Volatile
     /// Checks if a point is contained in this shape. 
     /// Begins with an AABB check.
     /// </summary>
-    internal bool Query(Vector2 bodySpacePoint)
+    internal bool QueryPoint(Vector2 bodySpacePoint)
     {
       // Queries and casts on shapes are always done in body space
-      if (this.bodySpaceAABB.Query(bodySpacePoint) == true)
-        return this.ShapeQuery(bodySpacePoint);
+      if (this.bodySpaceAABB.QueryPoint(bodySpacePoint))
+        return this.ShapeQueryPoint(bodySpacePoint);
       return false;
     }
 
@@ -119,11 +120,11 @@ namespace Volatile
     /// Checks if a circle overlaps with this shape. 
     /// Begins with an AABB check.
     /// </summary>
-    internal bool Query(Vector2 bodySpacePoint, float radius)
+    internal bool QueryCircle(Vector2 bodySpaceOrigin, float radius)
     {
       // Queries and casts on shapes are always done in body space
-      if (this.bodySpaceAABB.Query(bodySpacePoint, radius) == true)
-        return this.ShapeQuery(bodySpacePoint, radius);
+      if (this.bodySpaceAABB.QueryCircleApprox(bodySpaceOrigin, radius))
+        return this.ShapeQueryCircle(bodySpaceOrigin, radius);
       return false;
     }
 
@@ -132,11 +133,11 @@ namespace Volatile
     /// Begins with an AABB check.
     /// </summary>
     internal bool RayCast(
-      ref RayCast bodySpaceRay, 
-      ref RayResult result)
+      ref VoltRayCast bodySpaceRay, 
+      ref VoltRayResult result)
     {
       // Queries and casts on shapes are always done in body space
-      if (this.bodySpaceAABB.RayCast(ref bodySpaceRay) == true)
+      if (this.bodySpaceAABB.RayCast(ref bodySpaceRay))
         return this.ShapeRayCast(ref bodySpaceRay, ref result);
       return false;
     }
@@ -146,23 +147,50 @@ namespace Volatile
     /// Begins with an AABB check.
     /// </summary>
     internal bool CircleCast(
-      ref RayCast bodySpaceRay, 
+      ref VoltRayCast bodySpaceRay, 
       float radius, 
-      ref RayResult result)
+      ref VoltRayResult result)
     {
       // Queries and casts on shapes are always done in body space
-      if (this.bodySpaceAABB.CircleCast(ref bodySpaceRay, radius) == true)
+      if (this.bodySpaceAABB.CircleCastApprox(ref bodySpaceRay, radius))
         return this.ShapeCircleCast(ref bodySpaceRay, radius, ref result);
       return false;
     }
     #endregion
 
-    internal Shape(float density, float friction, float restitution)
+    protected void Initialize(
+      float density, 
+      float friction, 
+      float restitution)
     {
-      this.id = nextId++;
       this.Density = density;
       this.Friction = friction;
       this.Restitution = restitution;
+
+#if DEBUG
+      this.IsInitialized = true;
+#endif
+    }
+
+    protected virtual void Reset()
+    {
+#if DEBUG
+      this.IsInitialized = false;
+#endif
+
+      this.UserData = null;
+      this.Body = null;
+
+      this.Density = 0.0f;
+      this.Friction = 0.0f;
+      this.Restitution = 0.0f;
+
+      this.Area = 0.0f;
+      this.Mass = 0.0f;
+      this.Inertia = 0.0f;
+
+      this.bodySpaceAABB = default(VoltAABB);
+      this.worldSpaceAABB = default(VoltAABB);
     }
 
     #region Functionality Overrides
@@ -171,25 +199,25 @@ namespace Volatile
     #endregion
 
     #region Test Overrides
-    protected abstract bool ShapeQuery(
+    protected abstract bool ShapeQueryPoint(
       Vector2 bodySpacePoint);
 
-    protected abstract bool ShapeQuery(
-      Vector2 bodySpacePoint,
+    protected abstract bool ShapeQueryCircle(
+      Vector2 bodySpaceOrigin,
       float radius);
 
     protected abstract bool ShapeRayCast(
-      ref RayCast bodySpaceRay,
-      ref RayResult result);
+      ref VoltRayCast bodySpaceRay,
+      ref VoltRayResult result);
 
     protected abstract bool ShapeCircleCast(
-      ref RayCast bodySpaceRay,
+      ref VoltRayCast bodySpaceRay,
       float radius,
-      ref RayResult result);
+      ref VoltRayResult result);
     #endregion
 
     #region Debug
-#if VOLATILE_UNITY
+#if UNITY && DEBUG
     public abstract void GizmoDraw(
       Color edgeColor,
       Color normalColor,

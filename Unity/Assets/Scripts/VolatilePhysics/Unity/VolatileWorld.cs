@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -10,34 +11,25 @@ public class VolatileWorld : MonoBehaviour
   public static VolatileWorld Instance { get { return instance; } }
   protected static VolatileWorld instance = null;
 
+  
+
   [SerializeField]
   int historyLength = 0;
 
-  public World world;
-  public bool doFixedUpdate;
+  [SerializeField]
+  bool doUpdate = true;
 
-  public int CurrentFrame { get { return this.currentFrame; } }
-  private int currentFrame;
+  public VoltWorld World { get; private set; }
 
   void Awake()
   {
     VolatileWorld.instance = this;
-    this.currentFrame = 0;
-    this.world = new World(this.historyLength);
-  }
-
-  void Start()
-  {
+    this.World = new VoltWorld(this.historyLength);
   }
 
   void FixedUpdate()
   {
-    if (this.doFixedUpdate == true)
-      this.world.Update(this.currentFrame++);
-  }
-
-  public void AddBody(Body body)
-  {
-    this.world.AddBody(body);
+    if (this.doUpdate)
+      this.World.Update();
   }
 }

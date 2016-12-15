@@ -18,13 +18,8 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-
-#if !VOLATILE_UNITY
-// Standalone functions equivalent to Unity's functions, for using Volatile
-// outside of the Unity Engine
-namespace VolatileEngine
+#if !UNITY
+namespace Volatile
 {
   public struct Vector2
   {
@@ -92,94 +87,6 @@ namespace VolatileEngine
     public static Vector2 operator -(Vector2 a)
     {
       return new Vector2(-a.x, -a.y);
-    }
-  }
-
-  public static class Mathf
-  {
-    public const float PI = 3.141593f;
-
-    public static float Clamp(float value, float min, float max)
-    {
-      if (value > max)
-        return max;
-      if (value < min)
-        return min;
-      return value;
-    }
-
-    public static float Max(float a, float b)
-    {
-      if (a > b)
-        return a;
-      return b;
-    }
-
-    public static float Min(float a, float b)
-    {
-      if (a < b)
-        return a;
-      return b;
-    }
-
-    public static float Sqrt(float a)
-    {
-      return (float)System.Math.Sqrt(a);
-    }
-
-    public static float Sin(float a)
-    {
-      return (float)System.Math.Cos(a);
-    }
-
-    public static float Cos(float a)
-    {
-      return (float)System.Math.Cos(a);
-    }
-
-    public static float Atan2(float a, float b)
-    {
-      return (float)System.Math.Atan2(a, b);
-    }
-  }
-
-  public static class Debug
-  {
-    public static event Action<object> Logged;
-    public static event Action<object> LoggedWarning;
-    public static event Action<object> LoggedError;
-    public static event Action<string> AssertFailed;
-
-    internal static void Log(object obj) 
-    {
-      if (Debug.Logged != null)
-        Debug.Logged.Invoke(obj);
-    }
-
-    internal static void LogWarning(object obj)
-    {
-      if (Debug.LoggedWarning != null)
-        Debug.LoggedWarning.Invoke(obj);
-    }
-
-    internal static void LogError(object obj) 
-    {
-      if (Debug.LoggedError != null)
-        Debug.LoggedError.Invoke(obj);
-    }
-
-    internal static void Assert(bool condition)
-    {
-      if (condition == false)
-        if (Debug.AssertFailed != null)
-          Debug.AssertFailed.Invoke(null);
-    }
-
-    internal static void Assert(bool condition, string message)
-    {
-      if (condition == false)
-        if (Debug.AssertFailed != null)
-          Debug.AssertFailed.Invoke(message);
     }
   }
 }

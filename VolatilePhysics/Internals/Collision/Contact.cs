@@ -18,48 +18,24 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-
-#if VOLATILE_UNITY
+#if UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
 #endif
 
 namespace Volatile
 {
-  internal sealed class Contact : IPoolable<Contact>
+  internal sealed class Contact 
+    : IVoltPoolable<Contact>
   {
-    #region Pool Class
-    internal sealed class Pool : ObjectPool<Contact>
-    {
-      protected override Contact Create()
-      {
-        return new Contact();
-      }
-    }
-    #endregion
-
-    #region IPoolable Members
-    private bool isValid = false;
-    Contact IPoolable<Contact>.Next { get; set; }
-
-    bool IPoolable<Contact>.IsValid
-    {
-      get { return this.isValid; }
-    }
-
-    void IPoolable<Contact>.Invalidate()
-    {
-      this.isValid = false;
-    }
+    #region Interface
+    IVoltPool<Contact> IVoltPoolable<Contact>.Pool { get; set; }
+    void IVoltPoolable<Contact>.Reset() { this.Reset(); }
     #endregion
 
     #region Static Methods
     private static float BiasDist(float dist)
     {
-      return Config.ResolveRate * Mathf.Min(0, dist + Config.ResolveSlop);
+      return VoltConfig.ResolveRate * Mathf.Min(0, dist + VoltConfig.ResolveSlop);
     }
     #endregion
 
@@ -69,6 +45,8 @@ namespace Volatile
 
     private Vector2 toA;
     private Vector2 toB;
+    private Vector2 toALeft;
+    private Vector2 toBLeft;
 
     private float nMass;
     private float tMass;
@@ -79,25 +57,9 @@ namespace Volatile
     private float cachedNormalImpulse;
     private float cachedTangentImpulse;
 
-    internal Contact()
+    public Contact()
     {
-      this.position = Vector2.zero;
-      this.normal = Vector2.zero;
-      this.penetration = 0.0f;
-
-      this.toA = Vector2.zero;
-      this.toB = Vector2.zero;
-
-      this.nMass = 0.0f;
-      this.tMass = 0.0f;
-      this.restitution = 0.0f;
-      this.bias = 0.0f;
-      this.jBias = 0.0f;
-
-      this.cachedNormalImpulse = 0.0f;
-      this.cachedTangentImpulse = 0.0f;
-
-      this.isValid = false;
+      this.Reset();
     }
 
     internal Contact Assign(
@@ -105,33 +67,24 @@ namespace Volatile
       Vector2 normal,
       float penetration)
     {
+      this.Reset();
+
       this.position = position;
       this.normal = normal;
       this.penetration = penetration;
 
-      this.toA = Vector2.zero;
-      this.toB = Vector2.zero;
-
-      this.nMass = 0.0f;
-      this.tMass = 0.0f;
-      this.restitution = 0.0f;
-      this.bias = 0.0f;
-      this.jBias = 0.0f;
-
-      this.cachedNormalImpulse = 0.0f;
-      this.cachedTangentImpulse = 0.0f;
-
-      this.isValid = true;
       return this;
     }
 
     internal void PreStep(Manifold manifold)
     {
-      Body bodyA = manifold.ShapeA.Body;
-      Body bodyB = manifold.ShapeB.Body;
+      VoltBody bodyA = manifold.ShapeA.Body;
+      VoltBody bodyB = manifold.ShapeB.Body;
 
       this.toA = this.position - bodyA.Position;
       this.toB = this.position - bodyB.Position;
+      this.toALeft = this.toA.Left();
+      this.toBLeft = this.toB.Left();
 
       this.nMass = 1.0f / this.KScalar(bodyA, bodyB, this.normal);
       this.tMass = 1.0f / this.KScalar(bodyA, bodyB, this.normal.Left());
@@ -156,15 +109,13 @@ namespace Volatile
 
     internal void Solve(Manifold manifold)
     {
-      Body bodyA = manifold.ShapeA.Body;
-      Body bodyB = manifold.ShapeB.Body;
+      VoltBody bodyA = manifold.ShapeA.Body;
+      VoltBody bodyB = manifold.ShapeB.Body;
       float elasticity = bodyA.World.Elasticity;
 
       // Calculate relative bias velocity
-      Vector2 vb1 =
-        bodyA.BiasVelocity + (bodyA.BiasRotation * this.toA.Left());
-      Vector2 vb2 =
-        bodyB.BiasVelocity + (bodyB.BiasRotation * this.toB.Left());
+      Vector2 vb1 = bodyA.BiasVelocity + (bodyA.BiasRotation * this.toALeft);
+      Vector2 vb2 = bodyB.BiasVelocity + (bodyB.BiasRotation * this.toBLeft);
       float vbn = Vector2.Dot((vb1 - vb2), this.normal);
 
       // Calculate and clamp the bias impulse
@@ -190,8 +141,7 @@ namespace Volatile
       // Calculate and clamp the friction impulse
       float jtMax = manifold.Friction * this.cachedNormalImpulse;
       float jt = vrt * tMass;
-      float result =
-        Mathf.Clamp(this.cachedTangentImpulse + jt, -jtMax, jtMax);
+      float result = Mathf.Clamp(this.cachedTangentImpulse + jt, -jtMax, jtMax);
       jt = result - this.cachedTangentImpulse;
       this.cachedTangentImpulse = result;
 
@@ -200,32 +150,51 @@ namespace Volatile
     }
 
     #region Internals
+    private void Reset()
+    {
+      this.position = Vector2.zero;
+      this.normal = Vector2.zero;
+      this.penetration = 0.0f;
+
+      this.toA = Vector2.zero;
+      this.toB = Vector2.zero;
+      this.toALeft = Vector2.zero;
+      this.toBLeft = Vector2.zero;
+
+      this.nMass = 0.0f;
+      this.tMass = 0.0f;
+      this.restitution = 0.0f;
+      this.bias = 0.0f;
+      this.jBias = 0.0f;
+
+      this.cachedNormalImpulse = 0.0f;
+      this.cachedTangentImpulse = 0.0f;
+    }
+
     private float KScalar(
-      Body bodyA,
-      Body bodyB,
+      VoltBody bodyA,
+      VoltBody bodyB,
       Vector2 normal)
     {
       float massSum = bodyA.InvMass + bodyB.InvMass;
-      float r1cnSqr =
-        VolatileUtil.Square(VolatileUtil.Cross(this.toA, normal));
-      float r2cnSqr =
-        VolatileUtil.Square(VolatileUtil.Cross(this.toB, normal));
+      float r1cnSqr = VoltMath.Square(VoltMath.Cross(this.toA, normal));
+      float r2cnSqr = VoltMath.Square(VoltMath.Cross(this.toB, normal));
       return
         massSum +
         bodyA.InvInertia * r1cnSqr +
         bodyB.InvInertia * r2cnSqr;
     }
 
-    private Vector2 RelativeVelocity(Body bodyA, Body bodyB)
+    private Vector2 RelativeVelocity(VoltBody bodyA, VoltBody bodyB)
     {
       return
-        (bodyA.AngularVelocity * this.toA.Left() + bodyA.LinearVelocity) -
-        (bodyB.AngularVelocity * this.toB.Left() + bodyB.LinearVelocity);
+        (bodyA.AngularVelocity * this.toALeft + bodyA.LinearVelocity) -
+        (bodyB.AngularVelocity * this.toBLeft + bodyB.LinearVelocity);
     }
 
     private void ApplyNormalBiasImpulse(
-      Body bodyA,
-      Body bodyB,
+      VoltBody bodyA,
+      VoltBody bodyB,
       float normalBiasImpulse)
     {
       Vector2 impulse = normalBiasImpulse * this.normal;
@@ -234,8 +203,8 @@ namespace Volatile
     }
 
     private void ApplyContactImpulse(
-      Body bodyA,
-      Body bodyB,
+      VoltBody bodyA,
+      VoltBody bodyB,
       float normalImpulseMagnitude,
       float tangentImpulseMagnitude)
     {

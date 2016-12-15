@@ -19,49 +19,41 @@
 */
 
 using System;
-using System.Collections.Generic;
-
-#if VOLATILE_UNITY
-using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
-  public static class History
+  public static class VoltUtil
   {
-    public const int CURRENT_FRAME = -1;
-
-    /// <summary>
-    /// Validates user-input frame numbers for processing internally.
-    /// </summary>
-    internal static bool ShouldStoreOnFrame(int frame)
+    public static void Swap<T>(ref T a, ref T b)
     {
-      if (frame == History.CURRENT_FRAME)
-        return false;
-
-      if (frame < 0)
-      {
-        Debug.LogError("Invalid frame value: " + frame);
-        return false;
-      }
-
-      return true;
+      T temp = b;
+      b = a;
+      a = temp;
     }
 
-    /// <summary>
-    /// Validates a frame number for performing casts and queries.
-    /// </summary>
-    internal static int ValidateTestFrame(int frame)
+    public static int ExpandArray<T>(ref T[] oldArray, int minSize = 1)
     {
-      if ((frame != History.CURRENT_FRAME) && (frame < 0))
-      {
-        Debug.LogError("Invalid frame value " + frame);
-        return History.CURRENT_FRAME;
-      }
+      // TODO: Revisit this using next-largest primes like built-in lists do
+      int newCapacity = Math.Max(oldArray.Length * 2, minSize);
+      T[] newArray = new T[newCapacity];
+      Array.Copy(oldArray, newArray, oldArray.Length);
+      oldArray = newArray;
+      return newCapacity;
+    }
 
-      return frame;
+    public static bool Filter_StaticOnly(VoltBody body)
+    {
+      return body.IsStatic;
+    }
+
+    public static bool Filter_DynamicOnly(VoltBody body)
+    {
+      return (body.IsStatic == false);
+    }
+
+    public static bool Filter_All(VoltBody body)
+    {
+      return true;
     }
   }
 }

@@ -21,24 +21,46 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
-  public static class VolatileUtil
+  public static class VoltMath
   {
-    public static void Swap<T>(ref T a, ref T b)
+    #region Transformations
+    public static Vector2 WorldToBodyPoint(
+      Vector2 bodyPosition,
+      Vector2 bodyFacing,
+      Vector2 vector)
     {
-      T temp = b;
-      b = a;
-      a = temp;
+      return (vector - bodyPosition).InvRotate(bodyFacing);
     }
-		
-#if !VOLATILE_UNITY
+
+    public static Vector2 WorldToBodyDirection(
+      Vector2 bodyFacing,
+      Vector2 vector)
+    {
+      return vector.InvRotate(bodyFacing);
+    }
+    #endregion
+
+    #region Body-Space to World-Space Transformations
+    public static Vector2 BodyToWorldPoint(
+      Vector2 bodyPosition,
+      Vector2 bodyFacing,
+      Vector2 vector)
+    {
+      return vector.Rotate(bodyFacing) + bodyPosition;
+    }
+
+    public static Vector2 BodyToWorldDirection(
+      Vector2 bodyFacing,
+      Vector2 vector)
+    {
+      return vector.Rotate(bodyFacing);
+    }
+    #endregion
+
     public static Vector2 Right(this Vector2 v)
     {
       return new Vector2(v.y, -v.x);
@@ -58,16 +80,15 @@ namespace Volatile
     {
       return new Vector2(v.x * b.x + v.y * b.y, v.y * b.x - v.x * b.y);
     }
-#endif
 
     public static float Angle(this Vector2 v)
     {
       return Mathf.Atan2(v.y, v.x);
     }
 
-    public static Vector2 Polar(float a)
+    public static Vector2 Polar(float radians)
     {
-      return new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+      return new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
     }
 
     public static float Cross(Vector2 a, Vector2 b)
@@ -79,40 +100,5 @@ namespace Volatile
     {
       return a * a;
     }
-
-    #region Debug
-#if VOLATILE_UNITY
-    public static void Draw(Body body)
-    {
-      body.GizmoDraw(
-        new Color(1.0f, 1.0f, 0.0f, 1.0f),  // Edge Color
-        new Color(1.0f, 0.0f, 1.0f, 1.0f),  // Normal Color
-        new Color(1.0f, 0.0f, 0.0f, 1.0f),  // Body Origin Color
-        new Color(0.0f, 0.0f, 0.0f, 1.0f),  // Shape Origin Color
-        new Color(0.1f, 0.0f, 0.5f, 1.0f),  // Body AABB Color
-        new Color(0.7f, 0.0f, 0.3f, 0.5f),  // Shape AABB Color
-        0.25f);
-
-      body.GizmoDrawHistory(
-        new Color(0.0f, 0.0f, 1.0f, 0.3f)); // History AABB Color
-    }
-
-    public static void Draw(Shape shape)
-    {
-      shape.GizmoDraw(
-        new Color(1.0f, 1.0f, 0.0f, 1.0f),  // Edge Color
-        new Color(1.0f, 0.0f, 1.0f, 1.0f),  // Normal Color
-        new Color(0.0f, 0.0f, 0.0f, 1.0f),  // Origin Color
-        new Color(0.7f, 0.0f, 0.3f, 1.0f),  // AABB Color
-        0.25f);
-    }
-
-    public static void Draw(AABB aabb)
-    {
-      aabb.GizmoDraw(
-        new Color(1.0f, 0.0f, 0.5f, 1.0f));  // AABB Color
-    }
-#endif
-    #endregion
   }
 }

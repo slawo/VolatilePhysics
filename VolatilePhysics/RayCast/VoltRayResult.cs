@@ -21,57 +21,60 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
-#endif
 
 namespace Volatile
 {
-  internal abstract class ObjectPool<T>
-    where T : class, IPoolable<T>
+  public struct VoltRayResult
   {
-    private T first;
-    private T last;
-
-    protected abstract T Create();
-
-    internal ObjectPool()
+    public bool IsValid { get { return this.shape != null; } }
+    public bool IsContained
     {
-      this.first = null;
-      this.last = null;
+      get { return this.IsValid && this.distance == 0.0f; }
     }
 
-    internal void Release(T value)
-    {
-      if (this.first == null)
-      {
-        this.first = value;
-        this.last = value;
-      }
-      else
-      {
-        this.last.Next = value;
-        this.last = value;
-      }
+    public VoltShape Shape { get { return this.shape; } }
 
-      value.Invalidate();
+    public VoltBody Body 
+    { 
+      get { return (this.shape == null) ? null : this.shape.Body; } 
     }
 
-    internal T Acquire()
+    public float Distance { get { return this.distance; } }
+    public Vector2 Normal { get { return this.normal; } }
+
+    private VoltShape shape;
+    private float distance;
+    internal Vector2 normal;
+
+    public Vector2 ComputePoint(ref VoltRayCast cast)
     {
-      if (this.first == null)
-        return this.Create();
+      return cast.origin + (cast.direction * this.distance);
+    }
 
-      T toReturn = first;
-      this.first = toReturn.Next;
-      toReturn.Next = null;
+    internal void Set(
+      VoltShape shape,
+      float distance,
+      Vector2 normal)
+    {
+      if (this.IsValid == false || distance < this.distance)
+      {
+        this.shape = shape;
+        this.distance = distance;
+        this.normal = normal;
+      }
+    }
 
-      if (this.first == null)
-        this.last = null;
+    internal void Reset()
+    {
+      this.shape = null;
+    }
 
-      return toReturn;
+    internal void SetContained(VoltShape shape)
+    {
+      this.shape = shape;
+      this.distance = 0.0f;
+      this.normal = Vector2.zero;
     }
   }
 }

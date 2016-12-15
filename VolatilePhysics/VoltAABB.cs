@@ -21,33 +21,51 @@
 using System;
 using System.Collections.Generic;
 
-#if VOLATILE_UNITY
+#if UNITY
 using UnityEngine;
-#else
-using VolatileEngine;
 #endif
 
 namespace Volatile
 {
-  public struct AABB
+  public struct VoltAABB
   {
     #region Static Methods
-    public static AABB CreateExpanded(AABB aabb, float expansionAmount)
+    public static VoltAABB CreateExpanded(VoltAABB aabb, float expansionAmount)
     {
-      return new AABB(
+      return new VoltAABB(
         aabb.top + expansionAmount,
         aabb.bottom - expansionAmount,
         aabb.left - expansionAmount,
         aabb.right + expansionAmount);
     }
 
-    public static AABB CreateMerged(AABB aabb1, AABB aabb2)
+    public static VoltAABB CreateMerged(VoltAABB aabb1, VoltAABB aabb2)
     {
-      return new AABB(
+      return new VoltAABB(
         Mathf.Max(aabb1.top, aabb2.top),
         Mathf.Min(aabb1.bottom, aabb2.bottom),
         Mathf.Min(aabb1.left, aabb2.left),
         Mathf.Max(aabb1.right, aabb2.right));
+    }
+
+    public static VoltAABB CreateSwept(VoltAABB source, Vector2 vector)
+    {
+      float top = source.top;
+      float bottom = source.bottom;
+      float left = source.left;
+      float right = source.right;
+
+      if (vector.x < 0.0f)
+        left += vector.x;
+      else
+        right += vector.x;
+
+      if (vector.y < 0.0f)
+        bottom += vector.y;
+      else
+        top += vector.y;
+
+      return new VoltAABB(top, bottom, left, right);
     }
 
     /// <summary>
@@ -55,7 +73,7 @@ namespace Volatile
     /// Adapted from: http://www.cs.utah.edu/~awilliam/box/box.pdf
     /// </summary>
     private static bool RayCast(
-      ref RayCast ray,
+      ref VoltRayCast ray,
       float top,
       float bottom,
       float left,
@@ -134,7 +152,7 @@ namespace Volatile
     /// <summary>
     /// Performs a point test on the AABB.
     /// </summary>
-    public bool Query(Vector2 point)
+    public bool QueryPoint(Vector2 point)
     {
       return 
         this.left <= point.x && 
@@ -144,20 +162,20 @@ namespace Volatile
     }
 
     /// <summary>
-    /// Performs a point test, expanding the AABB in all directions by a value.
+    /// Note: This doesn't take rounded edges into account.
     /// </summary>
-    public bool Query(Vector2 point, float expand)
+    public bool QueryCircleApprox(Vector2 origin, float radius)
     {
       return
-        (this.left - expand) <= point.x &&
-        (this.right + expand) >= point.x &&
-        (this.bottom - expand) <= point.y &&
-        (this.top + expand) >= point.y;
+        (this.left - radius) <= origin.x &&
+        (this.right + radius) >= origin.x &&
+        (this.bottom - radius) <= origin.y &&
+        (this.top + radius) >= origin.y;
     }
 
-    public bool RayCast(ref RayCast ray)
+    public bool RayCast(ref VoltRayCast ray)
     {
-      return AABB.RayCast(
+      return VoltAABB.RayCast(
         ref ray, 
         this.top, 
         this.bottom, 
@@ -166,11 +184,11 @@ namespace Volatile
     }
 
     /// <summary>
-    /// Note, this doesn't take rounded edges into account.
+    /// Note: This doesn't take rounded edges into account.
     /// </summary>
-    public bool CircleCast(ref RayCast ray, float radius)
+    public bool CircleCastApprox(ref VoltRayCast ray, float radius)
     {
-      return AABB.RayCast(
+      return VoltAABB.RayCast(
         ref ray,
         this.top + radius,
         this.bottom - radius,
@@ -178,7 +196,7 @@ namespace Volatile
         this.right + radius);
     }
 
-    public bool Intersect(AABB other)
+    public bool Intersect(VoltAABB other)
     {
       bool outside =
         this.right <= other.left ||
@@ -188,7 +206,7 @@ namespace Volatile
       return (outside == false);
     }
 
-    public bool Contains(AABB other)
+    public bool Contains(VoltAABB other)
     {
       return
         this.top >= other.Top &&
@@ -198,7 +216,7 @@ namespace Volatile
     }
     #endregion
 
-    public AABB(float top, float bottom, float left, float right)
+    public VoltAABB(float top, float bottom, float left, float right)
     {
       this.top = top;
       this.bottom = bottom;
@@ -206,7 +224,7 @@ namespace Volatile
       this.right = right;
     }
 
-    public AABB(Vector2 center, Vector2 extents)
+    public VoltAABB(Vector2 center, Vector2 extents)
     {
       Vector2 topRight = center + extents;
       Vector2 bottomLeft = center - extents;
@@ -217,29 +235,29 @@ namespace Volatile
       this.left = bottomLeft.x;
     }
 
-    public AABB(Vector2 center, float radius)
+    public VoltAABB(Vector2 center, float radius)
       : this (center, new Vector2(radius, radius))
     {
     }
 
-    public AABB ComputeTopLeft(Vector2 center)
+    public VoltAABB ComputeTopLeft(Vector2 center)
     {
-      return new AABB(this.top, center.y, this.left, center.x);
+      return new VoltAABB(this.top, center.y, this.left, center.x);
     }
 
-    public AABB ComputeTopRight(Vector2 center)
+    public VoltAABB ComputeTopRight(Vector2 center)
     {
-      return new AABB(this.top, center.y, center.x, this.right);
+      return new VoltAABB(this.top, center.y, center.x, this.right);
     }
 
-    public AABB ComputeBottomLeft(Vector2 center)
+    public VoltAABB ComputeBottomLeft(Vector2 center)
     {
-      return new AABB(center.y, this.bottom, this.left, center.x);
+      return new VoltAABB(center.y, this.bottom, this.left, center.x);
     }
 
-    public AABB ComputeBottomRight(Vector2 center)
+    public VoltAABB ComputeBottomRight(Vector2 center)
     {
-      return new AABB(center.y, this.bottom, center.x, this.right);
+      return new VoltAABB(center.y, this.bottom, center.x, this.right);
     }
 
     private Vector2 ComputeCenter()
@@ -250,7 +268,7 @@ namespace Volatile
     }
 
     #region Debug
-#if VOLATILE_UNITY
+#if UNITY && DEBUG
     public void GizmoDraw(Color aabbColor)
     {
       Color current = Gizmos.color;

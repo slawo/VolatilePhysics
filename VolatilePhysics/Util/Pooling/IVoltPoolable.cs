@@ -18,22 +18,12 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-
-#if VOLATILE_UNITY
-using UnityEngine;
-#else
-using VolatileEngine;
-#endif
-
 namespace Volatile
 {
-  internal interface IPoolable<T>
+  public interface IVoltPoolable<T>
+    where T : IVoltPoolable<T>
   {
-    T Next { get; set; }
-    bool IsValid { get; }
-
-    void Invalidate();
+    IVoltPool<T> Pool { get; set; }
+    void Reset();
   }
 }
